@@ -1,0 +1,45 @@
+variables:
+  circle_build_url: '{{ env "CIRCLE_BUILD_URL"}}'
+  circle_job_name: '{{ env "CIRCLE_JOB" }}'
+  circle_sha: '{{ env "CIRCLE_SHA1" }}'
+  base_ami_name: '{{ env "BASE_AMI_NAME" }}'
+  docker_mirror_hostname: '{{ env "DOCKER_MIRROR_HOSTNAME" }}'
+
+builders:
+- type: amazon-ebs
+  access_key: ""
+  secret_key: ""
+  region: '{{ user "ami_region" }}'
+  source_ami_filter:
+    filters:
+      virtualization-type: "hvm"
+      root-device-type: "ebs"
+      name: 'ubuntu-1604-vm-circleci-classic-1553228120'
+    owners: ["483285841698"]
+    most_recent: true
+  instance_type: "t3a.medium"
+  ami_name: "ubuntu-1604-vm-circleci-classic-{{timestamp}}"
+  ssh_username: "circleci"
+  ami_groups: "all"
+  user_data: |
+    #cloud-config
+    system_info:
+      default_user:
+        name: circleci
+  tags:
+    circle_build_url: '{{ user "circle_build_url" }}'
+    circle_job_name: '{{ user "circle_job_name" }}'
+    circle_sha: '{{ user "circle_sha" }}'
+    monorepo_content_sha: '{{ user "monorepo_content_sha" }}'
+  run_tags:
+    circle_build_url: '{{ user "circle_build_url" }}'
+  run_volume_tags:
+    circle_build_url: '{{ user "circle_build_url" }}'
+
+provisioners:
+- type: shell
+  inline:
+  - |
+    sudo mkdir -p /etc/docker
+    sudo bash -c 'if [ ! -f /etc/docker/daemon.json ]; then echo "{}" > /etc/docker/daemon.json; fi'
+    sudo bash -c 'cat <<< $(jq ".\"registry-mirrors\" = [\"{{ user "docker_mirror_hostname" }}\"]" /etc/docker/daemon.json) > /etc/docker/daemon.json'
